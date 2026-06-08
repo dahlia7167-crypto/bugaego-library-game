@@ -17,7 +17,6 @@
         .main-title { font-size: 22px; color: #2c3e50; margin-bottom: 25px; line-height: 1.4; word-break: keep-all; font-weight: 900; }
         .main-title span { color: #27ae60; }
         
-        /* 💡 타이머 디자인 추가 */
         #timer-container { font-size: 24px; font-weight: 900; color: #e74c3c; margin-bottom: 15px; background: #fdf2f0; padding: 10px; border-radius: 8px; border: 2px solid #fadbd8; display: inline-block; min-width: 150px; }
         
         .shelf { background-color: #d4a373; height: 15px; width: 100%; border-radius: 3px; box-shadow: 0 4px 6px rgba(0,0,0,0.15); margin-bottom: 40px; }
@@ -128,7 +127,6 @@
     let score = 0;
     let currentCorrectAnswer = [];
     
-    // 💡 타이머 관련 변수 추가
     let timerInterval;
     let initialTime = 0;
     let timeLeft = 0; 
@@ -143,4 +141,237 @@
     ];
 
     function generateCallNumbers(count) {
-        const classes = ["001", "001.3", "013.41", "026", "029", "029.8", "031", "040", "069.04", "069.0911", "082", "104", "114.5", "126", "126.5", "152.222", "152.7", "181.3", "189.1", "220", "223.84", "224.2", "301.0911", "304", "309.11", "309.111", "309.1666", "320.189", "320.4", "320.9", "325.04", "325.1", "325.21", "325.211", "326.18", "326.184", "331.5", "331.54", "3
+        const classes = ["001", "001.3", "013.41", "026", "029", "029.8", "031", "040", "069.04", "069.0911", "082", "104", "114.5", "126", "126.5", "152.222", "152.7", "181.3", "189.1", "220", "223.84", "224.2", "301.0911", "304", "309.11", "309.111", "309.1666", "320.189", "320.4", "320.9", "325.04", "325.1", "325.21", "325.211", "326.18", "326.184", "331.5", "331.54", "370", "372.68", "381.30911", "381.75", "404", "408", "409", "409.9", "410", "430.9", "440.9", "442.6", "442.63", "495.8", "496.01", "496.1", "511.1813", "511.4", "511.404", "517.1", "517.5", "517.523", "539.73", "539.9", "594.019", "594.5", "600", "600.13", "600.4", "600.99", "610.4", "610.911", "634", "657.1", "657.109", "670.92", "670.99", "701", "701.01", "701.109", "711.2", "711.25", "711.4", "714.7", "715", "715.03", "744", "745", "802", "808", "808.9", "810.9", "810.906", "811.6", "811.609", "813.6", "814.6", "814.709", "816.6", "818", "823", "833.6", "843", "848", "863", "900", "910", "911.03", "911.057", "921.05", "921.07", "922", "930", "942.048", "942.073", "980.1", "980.22", "990.94", "998.4"];
+        const names = ["강", "고", "김", "나", "도", "류", "마", "문", "박", "방", "백", "부", "변", "선", "소", "신", "안", "연", "오", "우", "유", "윤", "이", "임", "장", "전", "정", "조", "주", "차", "청", "추", "칸", "태", "표", "한", "황"];
+        const consonants = ["ㄱ", "ㄴ", "ㄷ", "ㄹ", "ㅁ", "ㅂ", "ㅅ", "ㅇ", "ㅈ", "ㅎ"];
+        
+        let numbers = [];
+        for (let i = 0; i < count; i++) {
+            let cls = classes[Math.floor(Math.random() * classes.length)];
+            let name = names[Math.floor(Math.random() * names.length)];
+            let num = Math.floor(Math.random() * 90) + 10;
+            let cons = consonants[Math.floor(Math.random() * consonants.length)];
+            numbers.push(`${cls} ${name}${num}${cons}`);
+        }
+        return [...new Set(numbers)].length === count ? numbers : generateCallNumbers(count);
+    }
+
+    function sortCallNumbers(numbers) {
+        return [...numbers].sort((a, b) => {
+            let partsA = a.split(" "); let partsB = b.split(" ");
+            let classA = parseFloat(partsA[0]); let classB = parseFloat(partsB[0]);
+            if (classA !== classB) return classA - classB;
+            return partsA[1].localeCompare(partsB[1]);
+        });
+    }
+
+    // 💡 무한 루프 블랙홀을 완벽히 막아줄 정교한 셔플 함수 도입!
+    function shuffleArray(array) {
+        let result = [...array];
+        for (let i = result.length - 1; i > 0; i--) {
+            let j = Math.floor(Math.random() * (i + 1));
+            let temp = result[i];
+            result[i] = result[j];
+            result[j] = temp;
+        }
+        return result;
+    }
+
+    function startTimer() {
+        clearInterval(timerInterval); 
+        document.getElementById("time-left").innerText = timeLeft;
+        
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            document.getElementById("time-left").innerText = timeLeft;
+            
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                alert(`시간 초과! ⏳\n최종 점수: ${score}점`);
+                gameOver();
+            }
+        }, 1000);
+    }
+
+    function loadStage() {
+        const container = document.getElementById("books-container");
+        container.innerHTML = "";
+        document.getElementById("stage-level").innerText = currentStage;
+        document.getElementById("score-display").innerText = score;
+
+        let minBooks, maxBooks;
+        if (currentStage <= 5) { minBooks = 2; maxBooks = 3; } 
+        else if (currentStage <= 10) { minBooks = 3; maxBooks = 4; } 
+        else if (currentStage <= 15) { minBooks = 4; maxBooks = 5; } 
+        else { minBooks = 5; maxBooks = 6; }
+        
+        if (currentStage <= 10) initialTime = 50;
+        else if (currentStage <= 30) initialTime = 40;
+        else if (currentStage <= 50) initialTime = 30;
+        else initialTime = 25;
+        
+        timeLeft = initialTime; 
+        
+        let bookCount = Math.floor(Math.random() * (maxBooks - minBooks + 1)) + minBooks;
+        let rawCallNumbers = generateCallNumbers(bookCount);
+        currentCorrectAnswer = sortCallNumbers(rawCallNumbers);
+
+        // 💡 셔플 안전장치 적용
+        let shuffledNumbers = shuffleArray(rawCallNumbers);
+        let attempts = 0;
+        
+        // 정답과 순서가 완전히 똑같으면 다시 섞기 (최대 10번까지만 시도해서 무한 루프 방지)
+        while (JSON.stringify(shuffledNumbers) === JSON.stringify(currentCorrectAnswer) && attempts < 10) {
+            shuffledNumbers = shuffleArray(rawCallNumbers);
+            attempts++;
+        }
+        
+        // 혹시라도 10번 섞었는데도 정답이랑 같으면 강제로 1, 2번째 책 위치를 휙 바꿔버림!
+        if (JSON.stringify(shuffledNumbers) === JSON.stringify(currentCorrectAnswer) && shuffledNumbers.length >= 2) {
+            let temp = shuffledNumbers[0];
+            shuffledNumbers[0] = shuffledNumbers[1];
+            shuffledNumbers[1] = temp;
+        }
+
+        shuffledNumbers.forEach(number => {
+            const book = document.createElement("div");
+            book.className = "book";
+            book.draggable = true;
+            book.style.background = bookColors[Math.floor(Math.random() * bookColors.length)];
+            book.style.height = `${Math.floor(Math.random() * 30) + 220}px`;
+
+            const label = document.createElement("div");
+            label.className = "call-label";
+            label.innerHTML = number.split(" ").join("<br>"); 
+            
+            book.appendChild(label);
+            book.addEventListener("dragstart", function() { draggedBook = this; });
+            book.addEventListener("dragover", function(e) { e.preventDefault(); });
+            book.addEventListener("drop", handleDrop);
+            book.dataset.callNumber = number;
+            container.appendChild(book);
+        });
+        
+        startTimer(); 
+    }
+
+    let draggedBook = null;
+    function handleDrop(e) {
+        e.preventDefault();
+        if (this !== draggedBook) {
+            let allBooks = Array.from(document.querySelectorAll('.book'));
+            let draggedIndex = allBooks.indexOf(draggedBook);
+            let droppedIndex = allBooks.indexOf(this);
+            if (draggedIndex < droppedIndex) this.parentNode.insertBefore(draggedBook, this.nextSibling);
+            else this.parentNode.insertBefore(draggedBook, this);
+        }
+    }
+
+    function checkAnswer() {
+        const currentBooks = Array.from(document.querySelectorAll('.book')).map(book => book.dataset.callNumber);
+        const isCorrect = currentBooks.every((val, index) => val === currentCorrectAnswer[index]);
+
+        if (isCorrect) {
+            clearInterval(timerInterval); 
+            
+            let timeTaken = initialTime - timeLeft; 
+            let timeBonus = Math.max(0, 100 - Math.floor(timeTaken * 3)); 
+            let stageScore = 100 + timeBonus; 
+            
+            score += stageScore; 
+            currentStage++;
+            alert(`정답입니다! 🚀\n(기본 100점 + 시간 보너스 ${timeBonus}점)`); 
+            loadStage();
+        } else {
+            clearInterval(timerInterval); 
+            alert(`틀렸습니다! 😢 최종 점수: ${score}점`);
+            gameOver();
+        }
+    }
+
+    function gameOver() {
+        clearInterval(timerInterval); 
+        document.getElementById("game-board").style.display = "none";
+        document.getElementById("ranking-screen").style.display = "block";
+        document.getElementById("final-score").innerText = score;
+        document.getElementById("register-area").style.display = "block";
+        document.getElementById("my-rank-display").style.display = "none";
+        loadRankings();
+    }
+
+    function submitScore() {
+        const name = document.getElementById("player-name").value.trim();
+        if (!name) { alert("[학번&이름]을 입력해주세요!"); return; }
+        
+        if (!db) {
+            alert("서버 접속이 원활하지 않아 일단 로컬 화면에만 표시할게!");
+            addLocalRow(name, score);
+            document.getElementById("register-area").style.display = "none";
+            return;
+        }
+
+        db.collection("rankings").add({
+            name: name,
+            score: score,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(() => {
+            alert("랭킹 등록 완료!");
+            document.getElementById("register-area").style.display = "none";
+            
+            db.collection("rankings").where("score", ">", score).get()
+            .then((snapshot) => {
+                let myRank = snapshot.size + 1; 
+                document.getElementById("player-name-display").innerText = name;
+                document.getElementById("my-rank-value").innerText = myRank;
+                document.getElementById("my-rank-display").style.display = "block"; 
+            });
+
+            loadRankings(); 
+        }).catch(err => {
+            console.error("저장 에러: ", err);
+            alert("앗, 데이터 저장 중 오류가 발생했어!");
+        });
+    }
+
+    function loadRankings() {
+        const listContainer = document.getElementById("ranking-list");
+        listContainer.innerHTML = "";
+
+        if (!db) return;
+
+        db.collection("rankings")
+          .orderBy("score", "desc")
+          .limit(10)
+          .get()
+          .then((querySnapshot) => {
+              let rank = 1;
+              querySnapshot.forEach((doc) => {
+                  const data = doc.data();
+                  const row = `<tr><td>${rank++}</td><td>${data.name}</td><td>${data.score}</td></tr>`;
+                  listContainer.innerHTML += row;
+              });
+          })
+          .catch(err => {
+              console.error("불러오기 에러: ", err);
+              listContainer.innerHTML = "<tr><td colspan='3'>랭킹을 불러오지 못했어요.</td></tr>";
+          });
+    }
+
+    function addLocalRow(name, score) {
+        const listContainer = document.getElementById("ranking-list");
+        listContainer.innerHTML = `<tr><td>-</td><td>${name}</td><td>${score}</td></tr>` + listContainer.innerHTML;
+    }
+
+    function restartGame() {
+        currentStage = 1; score = 0;
+        document.getElementById("game-board").style.display = "block";
+        document.getElementById("ranking-screen").style.display = "none";
+        document.getElementById("player-name").value = "";
+        loadStage();
+    }
+
+    loadStage();
+</script>
+
+</body>
+</html>
