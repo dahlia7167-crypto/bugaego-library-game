@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>부개고 다독다독 도서관: 청구기호 게임 랭킹전</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://bernardo-castilho.github.io/DragDropTouch/DragDropTouch.js"></script>
+    
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; text-align: center; background-color: #f0f4f8; margin: 0; padding: 20px; }
+        #game-board, #ranking-screen { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); margin: 20px auto; width: 90%; max-width: 700px; box-sizing: border-box; }
+        #ranking-screen { display: none; }
+        
+        .main-title { font-size: 22px; color: #2c3e50; margin-bottom: 25px; line-height: 1.4; word-break: keep-all; font-weight: 900; }
+        .main-title span { color: #27ae60; }
+        
+        #timer-container { font-size: 24px; font-weight: 900; color: #e74c3c; margin-bottom: 15px; background: #fdf2f0; padding: 10px; border-radius: 8px; border: 2px solid #fadbd8; display: inline-block; min-width: 150px; }
+        
+        .shelf { background-color: #d4a373; height: 15px; width: 100%; border-radius: 3px; box-shadow: 0 4px 6px rgba(0,0,0,0.15); margin-bottom: 40px; }
+        .books-container { display: flex; justify-content: center; align-items: flex-end; gap: 6px; height: 260px; padding: 0 20px; }
+        
+        .book { width: 70px; height: 240px; border-radius: 4px 2px 2px 4px; cursor: grab; user-select: none; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 25px; box-shadow: -3px 0 5px rgba(0,0,0,0.1) inset, 3px 3px 8px rgba(0,0,0,0.2); transition: transform 0.2s; }
+        .book:hover { transform: translateY(-10px); }
+        .book:active { cursor: grabbing; opacity: 0.9; }
+        .book::before { content: ''; position: absolute; top: 15px; left: 5px; right: 5px; height: 3px; background: rgba(0,0,0,0.1); }
+        .book::after { content: ''; position: absolute; bottom: 85px; left: 5px; right: 5px; height: 3px; background: rgba(0,0,0,0.1); }
+
+        .call-label { background-color: #fdfdfd; color: #333; width: 50px; padding: 8px 4px; font-size: 13px; font-weight: 900; text-align: center; border-radius: 2px; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); word-break: break-all; line-height: 1.4; border: 1px solid #eee; }
+        
+        button { padding: 12px 24px; font-size: 16px; font-weight: bold; cursor: pointer; background-color: #2c3e50; color: white; border: none; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.15); transition: 0.2s; }
+        button:hover { background-color: #1a252f; transform: translateY(-2px); }
+        
+        .stats { display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #555; background-color: #f8f9fa; padding: 10px 20px; border-radius: 8px; }
+        .ranking-table { width: 100%; margin-top: 20px; border-collapse: collapse; }
+        .ranking-table th, .ranking-table td { padding: 12px; border-bottom: 1px solid #eee; font-size: 16px; word-break: keep-all; }
+        .ranking-table th { background-color: #fdfdfd; color: #333; }
+        input[type="text"] { padding: 10px; font-size: 16px; width: 220px; border-radius: 5px; border: 1px solid #ccc; margin-right: 10px; text-align: center; outline: none; }
+        input[type="text"]:focus { border-color: #27ae60; }
+        
+        #my-rank-display { display: none; background-color: #e8f8f5; color: #117a65; padding: 15px; border-radius: 8px; font-size: 20px; font-weight: 900; margin-top: 20px; border: 2px solid #a3e4d7; }
+
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            #game-board, #ranking-screen { width: 100%; padding: 15px; margin: 10px auto; }
+            .main-title { font-size: 18px; margin-bottom: 15px; }
+            #timer-container { font-size: 20px; padding: 8px; margin-bottom: 10px; }
+            .books-container { padding: 0 2px; gap: 4px; height: 200px; }
+            .book { width: 45px !important; height: 180px !important; padding-bottom: 15px; }
+            .call-label { width: 36px; font-size: 11px; padding: 4px 2px; }
+            .stats { font-size: 14px; padding: 8px 15px; margin-bottom: 10px; }
+            button { padding: 10px 16px; font-size: 14px; }
+            input[type="text"] { width: 180px; margin-bottom: 10px; }
+            #my-rank-display { font-size: 18px; padding: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-board">
+    <div class="main-title">🏫부개고 <span>다독다독 도서관📖</span><br>🎮청구기호 정렬 게임 랭킹전🏆</div>
+    
+    <div id="timer-container">⏳ 남은 시간: <span id="time-left">0</span>초</div>
+
+    <div class="stats">
+        <div>점수: <span id="score-display">0</span>점</div>
+        <div>스테이지: <span id="stage-level">1</span></div>
+    </div>
+    <p style="font-weight: bold; color: #444; margin-bottom: 20px;">청구기호를 가나다/숫자순으로 바르게 정렬하세요!<br><span style="color:#e74c3c; font-size:14px;">(빠를수록 보너스 점수가 올라갑니다!)</span></p>
+    
+    <div class="books-container" id="books-container"></div>
+    <div class="shelf"></div>
+    
+    <button onclick="checkAnswer()">정답 제출하기</button>
+</div>
+
+<div id="ranking-screen">
+    <div class="main-title">🏫 부개고 <span>다독다독 도서관</span><br>청구기호 정렬 게임 랭킹전 🏆</div>
+    
+    <h2 style="color: #e74c3c;">🎮 GAME OVER 🎮</h2>
+    <p style="font-size: 18px; font-weight: bold;">최종 점수: <span id="final-score">0</span>점</p>
+    
+    <div id="register-area" style="margin: 20px 0;">
+        <input type="text" id="player-name" placeholder="예: 10101김다독 (띄어쓰기 X)" maxlength="15">
+        <button onclick="submitScore()" style="background-color: #27ae60;">랭킹 등록</button>
+    </div>
+
+    <div id="my-rank-display">🎉 <span id="player-name-display"></span> 학생의 순위: <span id="my-rank-value"></span>등! 🎉</div>
+
+    <h3 style="margin-top: 30px;">🏆 실시간 명예의 전당 (Top 10)</h3>
+    <table class="ranking-table">
+        <thead>
+            <tr>
+                <th>순위</th>
+                <th>학번&이름</th>
+                <th>점수</th>
+            </tr>
+        </thead>
+        <tbody id="ranking-list">
+        </tbody>
+    </table>
+    <br>
+    <button onclick="restartGame()" style="margin-top: 10px;">다시 도전하기</button>
+</div>
+
+<script>
+    let db = null;
+    
+    try {
+        const firebaseConfig = {
+            apiKey: "AIzaSyC18DP2CRzAw0opE91vYCCiNkNhPRI7Pes",
+            authDomain: "bugaego-library.firebaseapp.com",
+            projectId: "bugaego-library",
+            storageBucket: "bugaego-library.firebasestorage.app",
+            messagingSenderId: "105126106146",
+            appId: "1:105126106146:web:0b33137e0e8e2a611aa67b"
+        };
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+    } catch (error) {
+        console.warn("서버 연결 지연. 로컬 모드로 작동합니다.", error);
+    }
+
+    let currentStage = 1;
+    let score = 0;
+    let currentCorrectAnswer = [];
+    
+    let timerInterval;
+    let initialTime = 0;
+    let timeLeft = 0; 
+    
+    const bookColors = [
+        "linear-gradient(to right, #ffb3ba, #ff9ab3)", 
+        "linear-gradient(to right, #ffdfba, #ffc894)", 
+        "linear-gradient(to right, #ffffba, #e8e898)", 
+        "linear-gradient(to right, #baffc9, #95e6a8)", 
+        "linear-gradient(to right, #bae1ff, #94ccf9)", 
+        "linear-gradient(to right, #e2cbff, #c9a7f9)"  
+    ];
+
+    function generateCallNumbers(count) {
+        const classes = ["001", "001.3", "013.41", "026", "029", "029.8", "031", "040", "069.04", "069.0911", "082",
